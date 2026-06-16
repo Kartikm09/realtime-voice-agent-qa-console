@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "realtime-voice-agent-qa-console"
+version = "0.1.0"
+description = "QA scorecards for voice-agent call events, consent, intake coverage, latency, and handoff quality."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Kartik Mishra" }]
+license = { text = "MIT" }
+keywords = ["voice-agents", "ai-evaluation", "vapi", "qa", "red-teaming", "python"]
+
+[project.scripts]
+voice-qa-console = "voice_qa_console.cli:main"

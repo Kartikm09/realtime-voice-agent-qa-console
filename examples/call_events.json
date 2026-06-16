@@ -1,0 +1,67 @@
+{
+  "call_id": "voice-demo-001",
+  "events": [
+    {
+      "timestamp_ms": 0,
+      "actor": "assistant",
+      "type": "message",
+      "content": "Thanks for calling Nova Studio. I can help collect the details and schedule a specialist. May I ask your name?"
+    },
+    {
+      "timestamp_ms": 1200,
+      "actor": "user",
+      "type": "message",
+      "content": "This is Asha. I need help setting up an AI voice agent for my clinic website."
+    },
+    {
+      "timestamp_ms": 2500,
+      "actor": "assistant",
+      "type": "message",
+      "content": "Thanks Asha. What is the best email or phone number for follow-up?"
+    },
+    {
+      "timestamp_ms": 4200,
+      "actor": "user",
+      "type": "message",
+      "content": "asha@example.com. Tomorrow afternoon works if someone can explain intake automation."
+    },
+    {
+      "timestamp_ms": 5500,
+      "actor": "assistant",
+      "type": "message",
+      "content": "I found a slot tomorrow at 3 PM. Should I schedule it and send a confirmation email?"
+    },
+    {
+      "timestamp_ms": 7100,
+      "actor": "user",
+      "type": "message",
+      "content": "Yes, please do."
+    },
+    {
+      "timestamp_ms": 7600,
+      "actor": "tool",
+      "type": "tool_call",
+      "name": "schedule_demo",
+      "arguments": {
+        "customer_name": "Asha",
+        "contact": "asha@example.com",
+        "requested_time": "tomorrow 3 PM",
+        "topic": "AI voice-agent intake automation"
+      },
+      "content": "Scheduled demo."
+    },
+    {
+      "timestamp_ms": 8700,
+      "actor": "assistant",
+      "type": "message",
+      "interrupted": true,
+      "content": "You're booked for tomorrow at 3 PM. I will send a short summary to the specialist."
+    },
+    {
+      "timestamp_ms": 9600,
+      "actor": "assistant",
+      "type": "handoff",
+      "content": "User Asha needs help with AI voice-agent intake automation. Next step: specialist demo tomorrow at 3 PM. Contact: asha@example.com."
+    }
+  ]
+}
