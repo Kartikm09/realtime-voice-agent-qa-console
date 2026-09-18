@@ -92,3 +92,23 @@ This project demonstrates:
 ## Public-Safe Note
 
 This project avoids client names, model vendor names, private transcripts, and production secrets. All call events are synthetic.
+
+## Synthetic event coverage and limitations
+
+The analyzer accepts `silence` events with `duration_ms`, `capture_error` and
+`stalled` events, in addition to interruption and handoff events. Silence of at
+least 5000 ms warns; capture errors and explicit stalls fail capture health. An
+unanswered user turn now warns instead of silently passing latency.
+
+Consent is a conservative transcript hint: an entire affirmative utterance,
+used once within 30 seconds and reset by another user utterance. It is not
+proof of exact-action authorization. A live integration must bind an approval
+to the full proposed action; the separate durable runner in
+[Agentic Eval Ops Kit](https://github.com/Kartikm09/agentic-eval-ops-kit) demonstrates
+that local synthetic contract. No real provider, microphone, audio capture,
+calendar booking or handoff integration was tested. Timing here comes from
+synthetic event timestamps, not actual provider latency. Existing text safety
+checks are keyword heuristics and require reviewer judgment.
+
+Reproduce all regression and example checks with
+`PYTHONPATH=src python3 -m unittest discover -s tests -v`.
