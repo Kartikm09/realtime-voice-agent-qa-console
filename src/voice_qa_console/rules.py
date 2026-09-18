@@ -46,6 +46,7 @@ def analyze_call(payload: dict[str, Any], latency_threshold_ms: int = 2500) -> Q
         _check_tool_arguments(events),
         _check_handoff(events),
         _check_safety(events),
+        _check_capture_health(events),
     ]
     score = round(sum(check.points for check in checks) / sum(check.max_points for check in checks) * 100)
     status = "pass" if score >= 80 and all(check.status != "fail" for check in checks) else "review"
@@ -81,25 +82,26 @@ def _check_intake(events: list[dict[str, Any]]) -> CheckResult:
 
 
 def _check_consent(events: list[dict[str, Any]]) -> CheckResult:
-    consent_seen = False
+    # A conservative transcript hint, not authorization for a live integration.
+    consent_at = None
     action_without_consent = []
+    affirmative = {"yes", "yes please do", "please do", "go ahead", "that works",
+                   "confirm", "book it", "schedule it", "send it"}
     for event in events:
-        content = str(event.get("content", "")).lower()
-        if event.get("actor") == "user" and any(pattern in content for pattern in CONSENT_PATTERNS):
-            consent_seen = True
-        if event.get("type") == "tool_call" and event.get("name") in ACTION_TOOLS and not consent_seen:
-            action_without_consent.append(str(event.get("name")))
-
+        content = re.sub(r"[^\w\s]", "", str(event.get("content", "")).lower())
+        content = " ".join(content.split())
+        timestamp = int(event.get("timestamp_ms", 0))
+        if event.get("actor") == "user":
+            consent_at = timestamp if content in affirmative else None
+        if event.get("type") == "tool_call" and event.get("name") in ACTION_TOOLS:
+            if consent_at is None or timestamp - consent_at > 30000:
+                action_without_consent.append(str(event.get("name")))
+            consent_at = None  # A single utterance cannot approve later unrelated actions.
     if action_without_consent:
-        return CheckResult(
-            "consent_before_action",
-            "fail",
-            0,
-            20,
-            "Action tool was called before explicit user consent.",
-            action_without_consent,
-        )
-    return CheckResult("consent_before_action", "pass", 20, 20, "Action tools were gated by user consent.")
+        return CheckResult("consent_before_action", "fail", 0, 20,
+                           "Action lacked a fresh, unused affirmative transcript hint.", action_without_consent)
+    return CheckResult("consent_before_action", "pass", 20, 20,
+                       "Action transcript hints passed; live authorization was not verified.")
 
 
 def _check_latency(events: list[dict[str, Any]], latency_threshold_ms: int) -> CheckResult:
@@ -109,6 +111,7 @@ def _check_latency(events: list[dict[str, Any]], latency_threshold_ms: int) -> C
             continue
         response = next((candidate for candidate in events[index + 1 :] if candidate.get("actor") == "assistant"), None)
         if not response:
+            slow_turns.append(f"No assistant response after user turn at {event.get('timestamp_ms')}ms")
             continue
         gap = int(response.get("timestamp_ms", 0)) - int(event.get("timestamp_ms", 0))
         if gap > latency_threshold_ms:
@@ -190,6 +193,23 @@ def _recommendations(checks: list[CheckResult]) -> list[str]:
             notes.append("Validate tool arguments before execution.")
         elif check.name == "handoff_summary":
             notes.append("Emit a handoff note with user, need, context, and next step.")
+        elif check.name == "capture_health":
+            notes.append("Inspect capture errors and route stalled calls to human handoff.")
         elif check.name == "safety":
             notes.append("Block sensitive information requests and use secure user-owned channels.")
     return notes
+
+
+def _check_capture_health(events: list[dict[str, Any]]) -> CheckResult:
+    evidence = []
+    failed = False
+    for event in events:
+        kind = event.get("type")
+        if kind in {"capture_error", "stalled"}:
+            evidence.append(f"{kind} at {event.get('timestamp_ms')}ms")
+            failed = True
+        elif kind == "silence" and float(event.get("duration_ms", 0)) >= 5000:
+            evidence.append(f"silence {event['duration_ms']}ms at {event.get('timestamp_ms')}ms")
+    status = "fail" if failed else "warn" if evidence else "pass"
+    return CheckResult("capture_health", status, 0 if failed else 5 if evidence else 10, 10,
+                       "Synthetic capture/silence/stall event check; no audio-provider measurement.", evidence)
